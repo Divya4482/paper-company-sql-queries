@@ -1,1 +1,1 @@
-# paper-company-sql-queries
+Parch and Posey is a hypothetical company selling paper. They have 50 sales representatives across 4 regions in the US. They sell 3 types of papers Standard, Glossy, Poster. Their clients are primarily large Fortune 400 companies whom they attract by advertising on google, facebook and twitter. I have created files for database which can be added to the mysql workbench to create tables and then the ER Diagram. I have attached few problems with their solutions whicg can be used directly in mysql workbench.
