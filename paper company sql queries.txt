@@ -1,0 +1,208 @@
+(1) Sales Performance by Region and Representative
+
+1.) Which region has the highest total sales in terms of paper amount (USD)?
+
+SELECT region.name_region, SUM(orders.total_amt_usd) AS total_sales
+FROM orders JOIN accounts ON orders.account_id = accounts.id
+JOIN sales_reps ON accounts.sales_rep_id = sales_reps.id
+JOIN region ON sales_reps.region_id = region.id
+GROUP BY region.name_region
+ORDER BY total_sales DESC
+LIMIT 1;
+
+2.) Who are the top 5 sales representatives by total paper amount sold (USD)?
+
+SELECT sales_reps.name_rep, SUM(orders.total_amt_usd) AS total_sales
+FROM orders JOIN accounts ON orders.account_id = accounts.id
+JOIN sales_reps ON accounts.sales_rep_id = sales_reps.id
+GROUP BY sales_reps.name_rep
+ORDER BY total_sales DESC
+LIMIT 5;
+
+3.) How does the sales performance vary across different regions?
+
+SELECT region.name_region, SUM(orders.total_amt_usd) AS total_sales
+FROM orders JOIN accounts ON orders.account_id = accounts.id
+JOIN sales_reps ON accounts.sales_rep_id = sales_reps.id
+JOIN region ON sales_reps.region_id = region.id
+GROUP BY region.name_region
+ORDER BY total_sales DESC;
+
+
+
+
+(2) Channel Effectiveness for Client Acquisition
+
+1.) Which advertising channel has the highest conversion rate from web events to orders?
+
+SELECT web_events.channel, 
+       COUNT(DISTINCT orders.id) / COUNT(DISTINCT web_events.account_id) AS conversion_rate
+FROM web_events 
+LEFT JOIN orders ON web_events.account_id = orders.account_id
+GROUP BY web_events.channel
+ORDER BY conversion_rate DESC;
+
+2.) What is the average order value (USD) for clients acquired through each advertising channel?
+
+SELECT web_events.channel, AVG(orders.total_amt_usd) AS avg_order_value
+FROM web_events
+JOIN orders ON web_events.account_id = orders.account_id
+GROUP BY web_events.channel
+ORDER BY avg_order_value DESC;
+
+3.) Which channel brings in the highest number of new accounts?
+
+SELECT web_events.channel, COUNT(DISTINCT web_events.account_id) AS new_accounts
+FROM web_events 
+GROUP BY web_events.channel
+ORDER BY new_accounts DESC;
+
+
+
+
+(3) Sales Trends and Seasonality
+
+1.) What are the monthly sales trends for each type of paper?
+
+SELECT DATE_FORMAT(occurred_at, '%Y-%m-01') AS month,
+       SUM(standard_amt_usd) AS standard_sales,
+       SUM(gloss_amt_usd) AS gloss_sales,
+       SUM(poster_amt_usd) AS poster_sales
+FROM orders
+GROUP BY DATE_FORMAT(occurred_at, '%Y-%m-01')
+ORDER BY month;
+
+2.) Are there any seasonal patterns in the sales of Standard, Glossy, and Poster papers?
+
+SELECT DATE_FORMAT(occurred_at, '%Y-%m-01') AS month,
+       SUM(total_amt_usd) AS total_sales
+FROM orders
+GROUP BY DATE_FORMAT(occurred_at, '%Y-%m-01')
+ORDER BY total_sales DESC;
+
+
+3.) How does the total paper quantity ordered vary by month and region?
+
+SELECT DATE_FORMAT(occurred_at, '%Y-%m-01') AS month,
+       region.name_region,
+       SUM(orders.total) AS total_quantity
+FROM orders 
+JOIN accounts ON orders.account_id = accounts.id
+JOIN sales_reps ON accounts.sales_rep_id = sales_reps.id
+JOIN region ON sales_reps.region_id = region.id
+GROUP BY DATE_FORMAT(occurred_at, '%Y-%m-01'), region.name_region
+ORDER BY month, total_quantity DESC;
+
+
+
+
+(4) Product Demand Analysis
+
+1.) What is the distribution of orders among the three types of paper (Standard, Glossy, Poster)? 
+SELECT 'Standard' AS paper_type, SUM(standard_qty) AS total_quantity
+FROM orders
+UNION
+SELECT 'Glossy', SUM(gloss_qty) 
+FROM orders
+UNION
+SELECT 'Poster', SUM(poster_qty)
+FROM orders;
+
+2.) Which type of paper generates the highest revenue on average per order?
+SELECT 'Standard' AS paper_type, AVG(standard_amt_usd) AS avg_revenue
+FROM orders
+UNION
+SELECT 'Glossy', AVG(gloss_amt_usd)
+FROM orders
+UNION
+SELECT 'Poster', AVG(poster_amt_usd)
+FROM orders
+ORDER BY avg_revenue DESC;
+
+
+
+
+(5) Client Segmentation and Value
+
+1.) What is the average total paper amount (USD) per order for companies? 
+
+SELECT accounts.name_company, AVG(orders.total_amt_usd) AS avg_order_value
+FROM orders
+JOIN accounts ON orders.account_id = accounts.id
+group by accounts.name_company
+order by avg_order_value DESC;
+
+2.) Which accounts have the highest lifetime value based on their total orders?
+
+SELECT accounts.name_company AS account_name, SUM(orders.total_amt_usd) AS lifetime_value
+FROM orders 
+JOIN accounts ON orders.account_id = accounts.id
+GROUP BY accounts.name_company
+ORDER BY lifetime_value DESC
+LIMIT 10;
+
+
+
+
+(6) Geographical Sales Analysis
+
+1.) Which geographical region (by latitude and longitude) has the highest density of high-value accounts?
+
+SELECT region.name_region, COUNT(accounts.id) AS high_value_accounts
+FROM accounts 
+JOIN sales_reps ON accounts.sales_rep_id = sales_reps.id
+JOIN region ON sales_reps.region_id = region.id
+WHERE accounts.id IN (
+    SELECT account_id
+    FROM orders
+    GROUP BY account_id
+    HAVING SUM(total_amt_usd) >= (
+        SELECT AVG(total_amt_usd)
+        FROM orders
+    )
+)
+GROUP BY region.name_region
+ORDER BY high_value_accounts DESC;
+
+
+2.) Are there any geographical trends in the types of paper ordered?
+
+SELECT region.name_region, 
+       SUM(orders.standard_qty) AS standard_quantity,
+       SUM(orders.gloss_qty) AS gloss_quantity,
+       SUM(orders.poster_qty) AS poster_quantity
+FROM orders
+JOIN accounts ON orders.account_id = accounts.id
+JOIN sales_reps ON accounts.sales_rep_id = sales_reps.id
+JOIN region ON sales_reps.region_id = region.id
+GROUP BY region.name_region
+ORDER BY region.name_region;
+
+
+
+
+(7) Order Fulfillment and Frequency
+
+1.) What is the average time between successive orders for each account? 
+
+SELECT account_id, AVG(DATEDIFF(next_order_time, occurred_at)) AS avg_time_between_orders
+FROM (
+    SELECT orders.account_id, orders.occurred_at, 
+           LEAD(orders.occurred_at) OVER (PARTITION BY orders.account_id ORDER BY orders.occurred_at) AS next_order_time
+    FROM orders 
+) AS subquery
+WHERE next_order_time IS NOT NULL
+GROUP BY account_id
+order by avg_time_between_orders DESC;
+
+2.) Which accounts have the highest order frequency?
+
+SELECT orders.account_id, accounts.name_company, COUNT(orders.id) AS order_count
+FROM orders
+JOIN accounts ON orders.account_id = accounts.id
+GROUP BY orders.account_id, accounts.name_company
+ORDER BY order_count DESC
+LIMIT 10;
+
+
+
